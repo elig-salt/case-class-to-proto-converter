@@ -9,7 +9,7 @@
 .Wrapper {
   width: 60vw;
   height: 80vh;
-  border: white 1px solid;
+  /* border: white 1px solid; */
 
   display: flex;
   flex-direction: row;
@@ -21,7 +21,7 @@
 
 .Text {
   height: 98%;
-  width: 45%;
+  width: 48%;
 }
 .Convert-button {
   margin-top: 10px;

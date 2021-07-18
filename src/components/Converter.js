@@ -30,7 +30,7 @@ const Converter = () => {
         text={textStateFrom}
         handleTextChange={setTextStateFrom}
       />
-      <button className="Convert-button">Convert</button>
+      {/* <button className="Convert-button">Convert</button> */}
       <ConverterTextArea
         text={converted}
       />
