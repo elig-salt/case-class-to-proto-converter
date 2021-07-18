@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
+import { snakeCase } from "change-case";
 
 const INVALID_INPUT = "Invalid input";
 const messageNameRegex = /^case class\s*(.+)\(/g;
 const paramsRegex = /(\(.*\))/g;
 
-const typeMap = new Map([
-  ["String", "string"],
-  ["Boolean", "bool"],
+const primitiveTypesMap = new Map([
+  ["Double", { normal: "double", optional: "google.protobuf.DoubleValue" }],
+  ["Float", { normal: "float", optional: "google.protobuf.FloatValue" }],
+  ["Long", { normal: "int64", optional: "google.protobuf.Int64Value" }],
+  ["Int", { normal: "int32", optional: "google.protobuf.Int32Value" }],
+  ["Boolean", { normal: "bool", optional: "google.protobuf.BoolValue" }],
+  ["String", { normal: "string", optional: "google.protobuf.StringValue" }],
+  ["ByteString", { normal: "bytes", optional: "google.protobuf.BytesValue" }],
+]);
+
+const nonPimitiveTypesMap = new Map([
+  ["LocalDateTime", "common.time.Timestamp"],
 ]);
 
 export function useConverter(text) {
@@ -16,11 +26,12 @@ export function useConverter(text) {
     let newState = "";
 
     const cleaned = cleanText(text);
-    const inputItems = cleaned.split("case class")
-    .filter(item => item.trim() !== "")
-    .map(item => {
-      return `case class ${item.trim()}`;
-    });
+    const inputItems = cleaned
+      .split("case class")
+      .filter((item) => item.trim() !== "" && !item.startsWith("//"))
+      .map((item) => {
+        return `case class ${item.trim()}`;
+      });
 
     for (const item of inputItems) {
       const result = convertSingleScalaCaseClassToProto(item.trim());
@@ -31,7 +42,7 @@ export function useConverter(text) {
       newState += `\n${result}`;
     }
 
-    setState(newState);
+    setState(newState.trim());
   }, [text]);
 
   return { converted: state };
@@ -49,19 +60,33 @@ function convertScalaToProtoParamType(type) {
   let input = type.replaceAll(/=.*/g, "");
   let hasOption = false;
   let hasList = false;
-  if (type.includes("Option[")) {
+  if (input.includes("Option[")) {
     hasOption = true;
-    input = type.replaceAll("Option[", "").replaceAll("]", "");
-  } else if (type.includes("List[")) {
-    hasList = true;
-    input = type.replaceAll("List[", "").replaceAll("]", "");
   }
-  const mappedType = typeMap.get(input.trim());
-  if (!mappedType) return null;
-  return {
-    prefix: `${hasList ? "repeated " : ""}${mappedType}`,
-    suffix: hasOption ? null : "[(scalapb.field).no_box = true]",
-  };
+  if (input.includes("List[")) {
+    hasList = true;
+  }
+
+  input = input
+    .replaceAll("Option[", "")
+    .replaceAll("List[", "")
+    .replaceAll("]", "")
+    .trim();
+
+  const mappedType = primitiveTypesMap.get(input);
+  if (mappedType) {
+    const { normal, optional } = mappedType;
+    return {
+      prefix: `${hasList ? "repeated " : ""}${hasOption ? optional : normal}`,
+      suffix: null,
+    };
+  } else {
+    let nonPrimitiveType = nonPimitiveTypesMap.get(input) || input;
+    return {
+      prefix: `${hasList ? "repeated " : ""}${nonPrimitiveType}`,
+      suffix: hasOption ? "[(scalapb.field).no_box = true]" : null,
+    };
+  }
 }
 
 function convertParams(params) {
@@ -70,9 +95,10 @@ function convertParams(params) {
   }
   return params
     .map(({ key, val }, index) => {
+      const formattedKey = snakeCase(key);
       const paramType = convertScalaToProtoParamType(val);
-      if (!paramType) return null;
-      let result = `  ${paramType.prefix} ${key} = ${index + 1}`;
+
+      let result = `  ${paramType.prefix} ${formattedKey} = ${index + 1}`;
       if (paramType.suffix) {
         result += ` ${paramType.suffix}`;
       }
