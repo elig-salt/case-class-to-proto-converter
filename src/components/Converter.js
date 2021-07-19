@@ -6,10 +6,10 @@ const sampleCaseClass=`
 // Copy and paste an object into here
 case class SomeObject(
   id: String,
-  name: Option[String] = None,
+  string: Option[String] = None,
   bool: Option[Boolean] = None,
   float: Float,
-  website: Option[Double] = None,
+  double: Option[Double] = None,
   someInt: Int,
   someLong: Option[Long] = None,
   someListOfOptionalStrings: List[Option[String]]= None,
